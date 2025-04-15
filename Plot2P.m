@@ -7,6 +7,7 @@ function [] = Plot2P(varargin)
     if ~isempty(varargin)
         datadir = convertCharsToStrings(varargin{1});
     else
+        datadir = pwd;
 %         datadir = '/Volumes/Projects/2P5XFAD/JarascopeData/wehr3133/12-12-24-002'; % enter directory to plot (if none explicitly passed)
     end
     
@@ -14,7 +15,12 @@ function [] = Plot2P(varargin)
         CellToPlot = varargin{2};
     end
 
-    figdir = '/Users/sammehan/Documents/Wehr Lab/Alzheimers2P/Figs'; % where would you like to save these tuning curves?
+    switch getenv("USER")
+        case 'wehr'
+            figdir = fullfile(datadir, 'Figs'); % where would you like to save these tuning curves?
+        otherwise
+            figdir = '/Users/sammehan/Documents/Wehr Lab/Alzheimers2P/Figs'; % where would you like to save these tuning curves?
+    end
     filepathparts = strsplit(datadir, '/'); mouseID = filepathparts{6}; sessionID = filepathparts{end};
     savename = fullfile(figdir, strcat(filepathparts{end-1}, '-', filepathparts{end}, '-TC-Mk2.ps'));
 

@@ -1,21 +1,28 @@
 function [] = PlotTrack2P(varargin)
 
-% Pass matched_suite2p directory (/Volumes/Projects/2P5XFAD/JarascopeData/[MOUSEID]/track2p/[TRACK2P IDENTIFIER]/matched_suite2p) 
+% Pass matched_suite2p directory (/Volumes/Projects/2P5XFAD/JarascopeData/[MOUSEID]/track2p/[TRACK2P IDENTIFIER]/matched_suite2p)
 % to plot cells tracked across sessions
 
 if ~isempty(varargin)
     datadir = convertCharsToStrings(varargin{1});
 else
-    error('Gotta pass a directory to plot!')
+    % error('Gotta pass a directory to plot!')
+    datadir=pwd;
 end
 
 datapathparts = strsplit(datadir, '/');
-mouseID = datapathparts{6}; 
-figdir = '/Users/sammehan/Documents/Wehr Lab/Alzheimers2P/Figs'; % where would you like to save these figures?
+mouseID = datapathparts{6};
 basedir = '/Volumes/Projects/2P5XFAD/JarascopeData/'; % full data directory path to build subsequent filepaths from
+switch getenv("USER")
+    case 'wehr'
+        figdir = fullfile(basedir, mouseID, 'track2pFigs'); % where would you like to save these tuning curves?
+        mkdir(figdir)
+    otherwise
+        figdir = '/Users/sammehan/Documents/Wehr Lab/Alzheimers2P/Figs'; % where would you like to save these tuning curves?
+end
 savename = fullfile(figdir, sprintf('%s-Tracked-%s.pdf', mouseID, datapathparts{8}));
 
-matched_sessions = dir(datadir); 
+matched_sessions = dir(datadir);
 matched_sessions = matched_sessions(end-1:end);
 for iSession = 1:length(matched_sessions)
     Sessions{iSession} = matched_sessions(iSession).name;
@@ -23,29 +30,37 @@ end
 
 for iDir = 1:length(Sessions)
     curr_session = fullfile(basedir, mouseID);
-    
+
     tempH5 = dir(fullfile(curr_session, Sessions{iDir}, '*.h5'));
     H5Paths{iDir} = fullfile(basedir, mouseID, Sessions{iDir}, tempH5.name);
     tempMat = dir(fullfile(curr_session, Sessions{iDir}, '*.mat'));
-    MatPaths{iDir} = fullfile(basedir, mouseID, Sessions{iDir}, tempMat(1).name);
-    
+    if length(tempMat)>1
+        for q=1:length(tempMat)
+            if ~contains(tempMat(q).name, 'quadrature')
+                MatPaths{iDir} = fullfile(basedir, mouseID, Sessions{iDir}, tempMat(q).name);
+            end
+        end
+    else
+        MatPaths{iDir} = fullfile(basedir, mouseID, Sessions{iDir}, tempMat(1).name);
+    end
+
     tempFall = dir(fullfile(datadir, Sessions{iDir}, '/suite2p/plane0/Fall.mat'));
     if isempty(tempFall)
         F = readNPY(fullfile(datadir, Sessions{iDir}, '/suite2p/plane0/F.npy'));
         Fneu = readNPY(fullfile(datadir, Sessions{iDir}, '/suite2p/plane0/Fneu.npy'));
         iscell = readNPY(fullfile(datadir, Sessions{iDir}, '/suite2p/plane0/iscell.npy'));
         spks = readNPY(fullfile(datadir, Sessions{iDir}, '/suite2p/plane0/spks.npy'));
-%         stat = readNPY(fullfile(datadir, Sessions{iDir}, '/suite2p/plane0/stat.npy'));
-%         ops = readNPY(fullfile(datadir, Sessions{iDir}, '/suite2p/plane0/ops.npy'));
-%         save(fullfile(tempFall, 'Fall.mat'), 'F', 'Fneu', 'iscell', 'ops', 'spks', 'stat');
-%         clear F Fneu iscell ops spks stat
+        %         stat = readNPY(fullfile(datadir, Sessions{iDir}, '/suite2p/plane0/stat.npy'));
+        %         ops = readNPY(fullfile(datadir, Sessions{iDir}, '/suite2p/plane0/ops.npy'));
+        %         save(fullfile(tempFall, 'Fall.mat'), 'F', 'Fneu', 'iscell', 'ops', 'spks', 'stat');
+        %         clear F Fneu iscell ops spks stat
     end
-%     FallPaths{iDir} = fullfile(tempFall.folder, 'Fall.mat');
+    %     FallPaths{iDir} = fullfile(tempFall.folder, 'Fall.mat');
     tones = h5read(H5Paths{iDir}, '/resultsData/currentFreq');
     intensities = h5read(H5Paths{iDir}, '/resultsData/currentIntensity');
     allTones{iDir} = unique(tones);
     allInts{iDir} = unique(intensities); allInts{iDir} = flip(allInts{iDir});
-    
+
     load(MatPaths{iDir})
     frames = info.frame;
     if rem(length(info.frame), length(tones)) == 2
@@ -55,7 +70,7 @@ for iDir = 1:length(Sessions)
     end
     frameIndex = 1:2:length(frames);
     frames = frames(frameIndex);
-    
+
     nCond = 0;
     for iFreq = 1:length(allTones{iDir})
         for iInt = 1:length(allInts{iDir})
@@ -69,8 +84,8 @@ for iDir = 1:length(Sessions)
     minReps = min(nReps);
     allTimestamps{iDir} = timestamps;
     allMinReps(iDir) = minReps;
-    clear timestamps 
-    
+    clear timestamps
+
     if exist('iscell') == 1
         iscellList = iscell;
         clear iscell
@@ -78,7 +93,7 @@ for iDir = 1:length(Sessions)
     iscellLog = logical(iscellList(:, 1)); iscellThresh = iscellList(:, 2);
     % Uncomment and enter a threshold value (0-1) to use Suite2P's likelihood value to select good cells
     % S2Pthresh = 0.95; % Suite2P likelihood threshold to use
-    % iscellLog = iscellThresh >= S2Pthresh; 
+    % iscellLog = iscellThresh >= S2Pthresh;
     cellsToPlot = F(iscellLog, :);
     neucellsToPlot = Fneu(iscellLog, :);
 
@@ -108,7 +123,7 @@ for currCell = 1:size(cellsToPlotCorr{1}, 1)
         timestamps = allTimestamps{iDir};
         for iTone = 1:size(timestamps, 1)
             for iInt = 1:size(timestamps, 2)
-                
+
                 currTimestamps = timestamps{iTone, iInt};
                 if length(currTimestamps) > allMinReps(iDir) || iDir == 1
                     currTimestamps = currTimestamps(1:allMinReps(iDir));
@@ -143,7 +158,7 @@ for currCell = 1:size(cellsToPlotCorr{1}, 1)
         ylabel('dF/F')
         axis off
         gcf;
-        
+
         which_fig = 0;
         for iInt = 1:size(timestamps, 2)
             for iTone = 1:size(timestamps, 1)
@@ -163,12 +178,14 @@ for currCell = 1:size(cellsToPlotCorr{1}, 1)
                 clear meanTrace
             end
         end
-        print(savename, '-dpsc2', '-append', '-bestfit');
-%         if currCell == 1 && iDir == 1
-%             exportgraphics(gcf, savename);
-%         else
-%             exportgraphics(gcf, savename);% 'Append', true);
-%         end
+        % print(savename, '-dpsc2', '-append', '-bestfit');
+        %         if currCell == 1 && iDir == 1
+        %             exportgraphics(gcf, savename);
+        %         else
+        % exportgraphics(gcf, savename);% 'Append', true);
+        exportgraphics(gcf,savename,'Append',true)
+
+        %         end
         sprintf('On Cell %d / %d \n', currCell, size(cellsToPlotCorr{iDir}, 1))
         clear meanRange meanRanges normRange currTrace
         close all

@@ -2,7 +2,7 @@ function [] = Plot2P(varargin)
 
     % Plot two-photon tuning curve data and print to a pdf
     % You can either pass the full path to your 2P datadir (on the NAS), or you can run as a script by entering your plot directory below
-    % Enter a directory and a cell number to plot (and NOT print) just that cell (NOT FINISHED YET SFM 12/17/24)
+    % Enter a directory and a cell number to plot (and NOT print) just that cell
     % Enter a third variable as a logical to plot spikes. 1 to plot spikes, 0 to plot fluorescence traces
     
     if ~isempty(varargin)
@@ -27,7 +27,8 @@ function [] = Plot2P(varargin)
 
     figdir = '/Users/sammehan/Documents/Wehr Lab/Alzheimers2P/Figs'; % where would you like to save these tuning curves?
     filepathparts = strsplit(datadir, '/'); mouseID = filepathparts{6}; sessionID = filepathparts{end};
-    savename = fullfile(figdir, strcat(filepathparts{end-1}, '-', filepathparts{end}, '-TC.ps'));
+    savename = fullfile(figdir, strcat(filepathparts{end-1}, '-', filepathparts{end}, '-TC.pdf'));
+    numPlots = 0;
 
     behaviorMAT = dir(fullfile(datadir, 'wehr*.mat'));
     load(fullfile(datadir, behaviorMAT(1).name))
@@ -40,8 +41,8 @@ function [] = Plot2P(varargin)
     behaviorH5 = dir(fullfile(datadir, 'wehr*.h5'));
     if isempty(behaviorH5)
         if exist(fullfile('/Volumes/Projects/2P5XFAD/JarascopeData/behavior/', mouseID), 'dir')
-            dateparts = strsplit(filepathparts{end}, '-'); month = dateparts{1}; day = dateparts{2}; year = strcat('20', dateparts{end});
-            behaviorfiles = dir(fullfile('/Volumes/Projects/2P5XFAD/JarascopeData/behavior/', mouseID, strcat(mouseID, '_am_tuning_curve_', year, month, day, '_', sessionID)));
+            dateparts = strsplit(filepathparts{end}, '-'); month = dateparts{1}; day = dateparts{2}; year = strcat('20', dateparts{3}); sessionID2 = dateparts{end};
+            behaviorfiles = dir(fullfile('/Volumes/Projects/2P5XFAD/JarascopeData/behavior/', mouseID, strcat(mouseID, '_tones_and_wn_', year, month, day, '-', sessionID2, '.h5')));
             if isempty(behaviorfiles)
                 behaviorfiles = dir(fullfile('/Volumes/Projects/2P5XFAD/JarascopeData/behavior/', mouseID, strcat(mouseID, '_am_tuning_curve_', year, month, day)));
                 if length(behaviorfiles) > 1
@@ -222,12 +223,13 @@ function [] = Plot2P(varargin)
             end    
         end
         if length(varargin) <= 1
-%             if currCell == 1
-%                 exportgraphics(gcf, savename);
-%             else
-%                 exportgraphics(gcf, savename, 'Append', true);
-%             end
-            print(savename, '-dpsc2', '-append', '-bestfit');
+            if numPlots == 0
+                exportgraphics(gcf, savename,'ContentType', 'image', 'BackgroundColor', 'white', 'PreserveAspectRatio', 'on');
+                numPlots = numPlots + 1;
+            else
+                exportgraphics(gcf, savename, 'ContentType', 'image', 'BackgroundColor', 'white', 'PreserveAspectRatio', 'on', 'Append', true);
+            end
+            % print(savename, '-dpsc2', '-append', '-bestfit');
             sprintf('On Cell %d / %d \n', currCell, size(cellsToPlotCorr, 1))
         end
         if exist('CellToPlot', 'var')

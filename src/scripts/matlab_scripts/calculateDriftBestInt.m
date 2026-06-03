@@ -1,10 +1,4 @@
-function [] = PlotTrack2P(varargin)
-
-% Pass matched_suite2p directory (/Volumes/Projects/2P5XFAD/JarascopeData/[MOUSEID]/track2p/[TRACK2P IDENTIFIER]/matched_suite2p) 
-% to plot cells tracked across sessions. Pass just the directory name to plot every cell and print to a .ps, pass with a number to plot a specific cell (ROI)
-% 3rd input variable is a switch to plot spikes, use 1 to plot spikes, 0 to plot fluorescence traces
-
-% Pass track2p directory (/Volumes/Projects/2P5XFAD/JarascopeData/[MOUSEID]/track2p/) to plot manually tracked cells across tracked sessions (if available)
+function [] = calculateDriftBestInt(varargin)
 
 if ~isempty(varargin)
     datadir = convertCharsToStrings(varargin{1});
@@ -16,23 +10,32 @@ if length(varargin) == 2
     CellToPlot = varargin{2};
 end
 
-if length(varargin) == 3
-    if ~isempty(varargin{2})
-        CellToPlot = varargin{2};
-    end
-    spikeLog = varargin{3};
-else
-    spikeLog = 0;                                                           % Logical variable to switch between plotting luminence traces or deconvolved spikes
-end
-smin = 0.5;                                                                 % Threshold for spikes (smin * maxvalue per cell = minimum spike threshold)
-
-
 datapathparts = strsplit(datadir, '/');
+if strcmp(datapathparts{end}, 'matched_suite2p') == 0
+    datadir = fullfile(datadir, 'matched_suite2p');
+end
+sessLog = strfind(datapathparts, 'track2p-w');
+temp = [];
+for i = 1:length(sessLog)
+    if isempty(sessLog{i})
+        temp(i) = 0;
+    else
+        temp(i) = sessLog{i};
+    end
+end
+sessLog = logical(temp);
+trackSessionID = string(datapathparts(sessLog));
 mouseID = datapathparts{6}; 
 figdir = '/Users/sammehan/Documents/Wehr Lab/Alzheimers2P/Figs'; % where would you like to save these figures?
 basedir = '/Volumes/Projects/2P5XFAD/JarascopeData/'; % full data directory path to build subsequent filepaths from
-savename = fullfile(figdir, sprintf('%s-Tracked-%s.pdf', mouseID, datapathparts{8}));
-numPlots = 0;
+if length(datapathparts) == 10
+    trackedSession = datapathparts{9};
+elseif length(datapathparts) == 9
+    trackedSession = datapathparts{8};
+else
+    % error('Make sure you pass the right directory for plotting!')
+end
+savename = fullfile(figdir, sprintf('%s-DriftPlots-%s.pdf', mouseID, trackSessionID));
 
 dirFilter = strcat(datadir, '/*-*');
 matched_sessions = dir(dirFilter); 
@@ -40,7 +43,6 @@ matched_sessions = dir(dirFilter);
 for iSession = 1:length(matched_sessions)
     Sessions{iSession} = matched_sessions(iSession).name;
 end
-
 datetimeSort = datetime(Sessions, 'Format', 'MM-dd-yy-SSS');
 Sessions = sort(datetimeSort);
 for i = 1:length(Sessions)
@@ -89,7 +91,6 @@ for iDir = 1:length(Sessions)
 %         save(fullfile(tempFall, 'Fall.mat'), 'F', 'Fneu', 'iscell', 'ops', 'spks', 'stat');
 %         clear F Fneu iscell ops spks stat
     end
-%     FallPaths{iDir} = fullfile(tempFall.folder, 'Fall.mat');
     tones = h5read(H5Paths{iDir}, '/resultsData/currentFreq');
     intensities = h5read(H5Paths{iDir}, '/resultsData/currentIntensity');
     allTones{iDir} = unique(tones);
@@ -136,17 +137,6 @@ for iDir = 1:length(Sessions)
     cellsToPlot = F(iscellLog, :);
     neucellsToPlot = Fneu(iscellLog, :);
     goodSpikes = spks(iscellLog, :);
-    if spikeLog == 1
-        for iCell = 1:size(spks,1)
-            maxResp = max(goodSpikes(iCell,:));
-            rast = goodSpikes(iCell,:) >= (maxResp * smin);
-            totalSpikeCounts(iCell) = sum(rast);
-            goodSpikes(iCell, :) = rast;
-        end
-        spikesToPlot{iDir} = goodSpikes;
-    else
-        spikesToPlot{iDir} = goodSpikes;
-    end
 
     corrScalar = 0.7;
     cellsToPlotCorr{iDir} = cellsToPlot - (neucellsToPlot * corrScalar);
@@ -158,17 +148,19 @@ for iSess = 1:length(Sessions)
         ylabels{iSess,iAmp} = sprintf('dF/F - %d dbSPL', IntsToLabel(iAmp));
     end
 end
-for iSess = 1:length(Sessions)
+% for iSess = 1:length(Sessions)
     TonesToLabel = allTones{iSess};
     for iFreq = 1:length(TonesToLabel)
         if TonesToLabel(iFreq) == -1
-            xlabels{iSess,iFreq} = 'WN';
+            % xlabels{iSess,iFreq} = 'WN';
+            xlabels{iFreq} = 'WN';
         else
-            xlabels{iSess,iFreq} = sprintf('%.1f', TonesToLabel(iFreq)/1000);
+            % xlabels{iSess,iFreq} = sprintf('%.1f', TonesToLabel(iFreq)/1000);
+            xlabels{iFreq} = sprintf('%.1f', TonesToLabel(iFreq)/1000);
         end
     end
-end
-cmap = jet(size(cellsToPlotCorr, 2));
+% end
+
 for currCell = 1:size(cellsToPlotCorr{1}, 1)
     if length(varargin) == 2
         currCell = CellToPlot;
@@ -197,95 +189,74 @@ for currCell = 1:size(cellsToPlotCorr{1}, 1)
                         normRange = (currTimestamps(iTrial) + 21):(currTimestamps(iTrial) + 30);
                     end
                     %currTrace = (cellsToPlotCorr{iDir}(currCell, currRange) - mean(cellsToPlotCorr{iDir}(currCell, normRange)))/mean(cellsToPlotCorr{iDir}(currCell, normRange));
-                    if spikeLog == 1
-                        currSpikes = spikesToPlot{iDir}(currCell, currRange);
-                        tempSpikes(iTrial, :) = currSpikes;
-                    else
-                        currTrace = (cellsToPlotCorr{iDir}(currCell, currRange) - mean(cellsToPlotCorr{iDir}(currCell, :)))/mean(cellsToPlotCorr{iDir}(currCell, :));
-                        meanRange(iTrial, :) = currTrace;
-                    end
+                    % should the norm range be the entire session (TC + Resting State) or just the stimulus presentation?
+                    currTrace = (cellsToPlotCorr{iDir}(currCell, currRange) - mean(cellsToPlotCorr{iDir}(currCell, :)))/mean(cellsToPlotCorr{iDir}(currCell, :));
+                    contTrace = (cellsToPlotCorr{iDir}(currCell, (currRange+27882)) - mean(cellsToPlotCorr{iDir}(currCell, :)))/mean(cellsToPlotCorr{iDir}(currCell, :));
+                    meanRange(iTrial, :) = currTrace;
+                    meanContRange(iTrial, :) = contTrace;
                 end
-                if spikeLog == 1
-                    spikeResp{iTone, iInt} = tempSpikes;
-                    spikesInWindow(iTone, iInt) = sum(tempSpikes, 'all');
-                else
-                    meanRanges{iTone, iInt} = meanRange';
-                end
+                meanRanges{iTone, iInt} = meanRange';
+                meanContRanges{iTone, iInt} = meanContRange';
             end
         end
-        
-        if iDir ~= 1
-            figure
-        end
+        allCorrMax(iDir) = max((cellsToPlotCorr{iDir}(currCell, :) - mean(cellsToPlotCorr{iDir}(currCell, :)))/mean(cellsToPlotCorr{iDir}(currCell, :)));
+        allCorrMin(iDir) = min((cellsToPlotCorr{iDir}(currCell, :) - mean(cellsToPlotCorr{iDir}(currCell, :)))/mean(cellsToPlotCorr{iDir}(currCell, :)));
+        allSilentAvg(iDir) = mean((cellsToPlotCorr{iDir}(currCell, 27883:end) - mean(cellsToPlotCorr{iDir}(currCell, 27883:end)))/mean(cellsToPlotCorr{iDir}(currCell, 27883:end)));
 
-        subplot1(length(allInts{iDir}),length(allTones{iDir}), 'Min', [0.05, 0.05], 'Gap', [0.01, 0.01]);
-        fig = gcf; orient(fig, 'landscape');
-        axes(fig, 'Position', [0.05, 0.05, 0.9, 0.9])
-        if spikeLog ~= 1
-            title(sprintf('ROI %s Tuning Curve - Sess. %s', num2str(currCell), Sessions{iDir}), 'Position', [0.5, 1.02]);
-        else
-            title(sprintf('ROI %s PSTH - Sess. %s', num2str(currCell), Sessions{iDir}), 'Position', [0.5, 1.02]);
-        end
-        text(0.5, -0.04, 'Time (in samples, 15.49 Hz)', 'HorizontalAlignment', 'center');
-        axis off
-        gcf;
-        
-        which_fig = 0;
-        for iInt = 1:size(timestamps, 2)
-            for iTone = 1:size(timestamps, 1)
-                which_fig = which_fig + 1;
-                if spikeLog ~= 1
-                    if sum(isnan(meanRanges{iTone, iInt}), 'all') ~= 0
-                        meanRanges{iTone, iInt} = rmmissing(meanRanges{iTone, iInt}, 2);
-                    end
-                meanTrace = mean(meanRanges{iTone, iInt}, 2);
-                end
-                subplot1(which_fig);
-%                 plot(meanRanges{iTone, iInt}, 'r', 'LineWidth', 1); 
-                if spikeLog == 1
-                    hold on; histogram('BinEdges', [0.5:31.5], 'BinCounts',sum(spikeResp{iTone,iInt},1));
-                    histo = findobj(gca);
-                    histo(2).FaceColor = [0 0 0];
-                    ylims = [0, 10];
-                    ylim(ylims);
-                    xlim([1, 31]);
-                    [~, xdots] = find(sum(spikeResp{iTone, iInt},1));
-                    if ~isempty(xdots)
-                        ydots = (0.67 * ylims(2)) + random('normal', 0, 1, [1 length(xdots)]);
-                        hold on; scatter(xdots, ydots, 30, '.k');
-                    end
-                else
-                    hold on; plot(meanTrace, 'k', 'LineWidth', 2);
-                    ylims = [-1.5, 10];
-                    ylim(ylims);
-                    xlim([1, 31]); 
-                end
-                xline(11, '--', 'Color', [0.5 0.5 0.5], 'LineWidth', 1);
-                if iTone == 1
-                    ylabel(ylabels{iDir, iInt});
-                end
-                if iInt == 1
-                    xLabYPos = ylims(2) + 0.65;
-                    xlabel(xlabels{iDir, iTone}, 'Position', [11, xLabYPos], 'HorizontalAlignment', 'center');
-                end
-                clear meanTrace ydots
+        for iTone = 1:size(meanRanges, 1)
+            for iInt = 1:size(meanRanges, 2)
+                maxResponse(iTone, iInt) = max(mean(meanRanges{iTone, iInt}, 2));
             end
         end
-        if length(varargin) <= 1
-            % print(savename, '-dpsc2', '-append', '-bestfit');
-            if numPlots == 0
-                exportgraphics(gcf, savename, 'ContentType', 'image', 'PreserveAspectRatio', 'on');
-                numPlots = numPlots + 1;
-            else
-                exportgraphics(gcf, savename, 'ContentType', 'image', 'PreserveAspectRatio', 'on', 'Append', true);
-            end
-            sprintf('On Cell %d / %d \n', currCell, size(cellsToPlotCorr{iDir}, 1))
-            clear meanRange meanRanges normRange currTrace
-            
-        end
+        allMaxResponses{iDir} = maxResponse;
+
     end
-    if exist('CellToPlot', 'var')
+    %significance tests comparing mean peak responses to silent avg, what test to use?
+    for iSes = 1:length(allMaxResponses)
+        currSess = allMaxResponses{iSes};
+        [tempMax, tempMaxInt] = max(currSess, [], 'all');
+        [bestFreq, bestInt] = find((currSess == tempMax));
+        all_CurrMaxRespInt(iSes) = bestInt;
+        all_CurrMaxResp(iSes) = tempMax;
+    end
+
+    curr_maxRespInt = mode(all_CurrMaxRespInt);
+    if length(curr_maxRespInt) > 1
+        [~, peakResp] = max(all_CurrMaxResp);
+        curr_maxRespInt = all_CurrMaxRespInt(peakResp);
+    end
+    
+    cmap = jet(length(Sessions));
+    figure
+    for i = 1:length(Sessions)
+        plot(allMaxResponses{i}(:, curr_maxRespInt), '-', 'Color', cmap(i,:), 'LineWidth', 1.5);
+        hold on
+    end
+    hold off
+    xlim([1, 18]);
+    ylim([-1, 15]);
+    xticks(1:19)
+    xticklabels(xlabels);
+    xlabel('Tones')
+    ylabel('Peak Mean Response \DeltaF/F')
+    title(sprintf('%s - %s - ROI %d Tuning Drift', mouseID, trackSessionID, currCell))
+    for numSess = 1:length(Sessions)
+        colorbar_labels{numSess} = sprintf('S%d', numSess);
+    end
+    labels = sprintf('%d dbSPL', allInts{1}(curr_maxRespInt));
+    colormap jet
+    label_interval = 1/length(Sessions);
+    colorbar('Ticks', 0:label_interval:(1-label_interval), 'TickLabels', colorbar_labels);
+    legend(labels, 'Location', 'northwest');
+
+    if exist('CellToPlot')
         break
     end
-close all
+    if ~exist(savename)
+        exportgraphics(gcf, savename, 'ContentType', 'image', 'PreserveAspectRatio', 'on');
+    else
+        exportgraphics(gcf, savename, 'ContentType', 'image', 'PreserveAspectRatio', 'on', 'Append', true);
+    end
+    close all
+    clear meanRange meanRanges allMaxResponses normRange currTrace timestamps currTimestamps currRange 
 end

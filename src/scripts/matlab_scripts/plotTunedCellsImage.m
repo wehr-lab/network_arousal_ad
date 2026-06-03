@@ -50,9 +50,28 @@ cellsMean = mean(cellsToPlot, 2);
 
 h5Ops = dir(fullfile(plotDir,'wehr*.h5'));
 if isempty(h5Ops)
-    h5Ops = dir(fullfile(basedir, mouseID, sessionID,'*.h5'));
+    if exist(fullfile('/Volumes/Projects/2P5XFAD/JarascopeData/behavior/', mouseID), 'dir')
+        dateparts = strsplit(filepathparts{end}, '-'); month = dateparts{1}; day = dateparts{2}; year = strcat('20', dateparts{3}); sessionID2 = dateparts{end};
+        behaviorfiles = dir(fullfile('/Volumes/Projects/2P5XFAD/JarascopeData/behavior/', mouseID, strcat(mouseID, '_tones_and_wn_', year, month, day, '-', sessionID2, '.h5')));
+        if isempty(behaviorfiles)
+            behaviorfiles = dir(fullfile('/Volumes/Projects/2P5XFAD/JarascopeData/behavior/', mouseID, strcat(mouseID, '_am_tuning_curve_', year, month, day)));
+            if length(behaviorfiles) > 1
+                error('Multiple behavior files are associated with this mouse and date, check with Sam (or the experimenter) what behavior file is correct')
+            elseif isempty(behaviorfiles)
+                error("Can't find behavior file for this day, confirm that you ran 'sh copy_wehr_data_to_nas.sh' in the terminal on the two-photon behavior (Linux) computer to sync to the NAS")
+            else
+                fullPathH5 = fullfile(behaviorfiles.folder, behaviorfiles.name);
+            end
+        else
+            fullPathH5 = fullfile(behaviorfiles.folder, behaviorfiles.name);
+        end
+    else
+        error("Can't find ANY behavior files associated with this mouse, confirm that you ran 'sh copy_wehr_data_to_nas.sh' in the terminal on the two-photon behavior (Linux) computer to sync to the NAS")
+    end
+else
+    fullPathH5 = fullfile(datadir, h5Ops.name);
 end
-h5path = fullfile(h5Ops.folder, h5Ops.name);
+h5path = fullPathH5;
 
 tones = h5read(h5path, '/resultsData/currentFreq');
 intensities = h5read(h5path, '/resultsData/currentIntensity');
@@ -180,13 +199,12 @@ end
 for iCell = 1:length(tunedList)
     scats2(iCell).MarkerFaceAlpha = normMeanPeakResponse(iCell);
 end
-savenamePS = fullfile(figdir, sprintf('TonotopyPlot-%s-%s.ps', mouseID, sessionDate));
-% savenamePDF = fullfile(figdir, sprintf('TonotopyPlot-%s-%s.pdf', mouseID, sessionDate));
-% if ~exist(savenamePDF)
-%     exportgraphics(gcf, savename);
-% else
-%     exportgraphics(gcf, savename, 'Append', true);
-% end
-print(savenamePS, '-dpsc2', '-append', '-fillpage');
+% savenamePS = fullfile(figdir, sprintf('TonotopyPlot-%s-%s.ps', mouseID, sessionDate));
+savenamePDF = fullfile(figdir, sprintf('TonotopyPlot-%s-%s.pdf', mouseID, sessionDate));
+if ~exist(savenamePDF)
+    exportgraphics(gcf, savenamePDF,'ContentType', 'image', 'BackgroundColor', 'white');
+else
+    exportgraphics(gcf, savenamePDF, 'ContentType', 'image', 'BackgroundColor', 'white', 'Append', true);
+end
 hold off
 close all

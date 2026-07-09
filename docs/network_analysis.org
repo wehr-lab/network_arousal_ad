@@ -1,0 +1,12 @@
+* Network analysis
+
+** Data checks 
+1. Check the value types of the full matrix
+3. Is the graph fragmented or 1 connected component? How many bins do we need to make the graph connected?
+
+8. Multilayer graphs algorithms from Basset. 
+
+9. Static graph: Module max and rich club analysis  
+
+
+5. Check low frequency vs high freq coupling of neurons -> from point process to firing rate to coupling of neurons in different spectral frequencies. The reason is that we are looking at both synaptic coupling and also shared modulations (low freq) in the observed neural system. Such shared modulations can come in the form of differing arousal level, etc.

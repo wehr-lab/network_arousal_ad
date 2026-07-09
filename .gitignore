@@ -1,3 +1,4 @@
 .DS_Store
 src/BCT/
-
+.vscode/
+__pycache__/

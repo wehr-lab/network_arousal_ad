@@ -3,3 +3,5 @@
   - [ ] Thinking of this data -> function -> output
     - [ ] Data: define the data path into a specific file that the library will use 
     - [ ] Function: define the function that will be used to manipulate the data
+
+    ** Need init scripts working

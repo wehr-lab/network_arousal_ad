@@ -1,0 +1,9 @@
+#+title: Questions
+
+* What is this note about?
+This note is the space I use to gather outstanding (not resolved) questions as I am developing my understanding of computation in networks.
+
+* Questions
+1. What do the dynamics of individual processing units (transistors) look like when we implement a certain algorithm in a neuromorphic chip?
+
+2. How does the A (the weight matrix) change as we go from continuous state to discrete state?
